@@ -1,3 +1,4 @@
+from pickle import NONE
 import sqlite3
 
 data = sqlite3.connect("ToDo.db")
@@ -78,14 +79,23 @@ def get_items():
 
     for i in range(0,total_items):
         row = i+1
-        cursor.execute("SELECT Title FROM ToDo WHERE ID =:c", {"c": row})
-        name = cursor.fetchone()[0]
-        cursor.execute("SELECT Priority FROM ToDo WHERE ID =:c", {"c": row})
-        priority = cursor.fetchone()[0]
-        cursor.execute("SELECT Category FROM ToDo WHERE ID =:c", {"c": row})
-        category = cursor.fetchone()[0]
+        cursor.execute("SELECT Title FROM ToDo WHERE ID =:c AND Status != 'Complete'", {"c": row})
+        name = cursor.fetchone()
+        if name != None:
+            name = name[0]
+        cursor.execute("SELECT Priority FROM ToDo WHERE ID =:c AND Status != 'Complete'", {"c": row})
+        priority = cursor.fetchone()
+        if priority != None:
+            priority = priority[0]
+        cursor.execute("SELECT Category FROM ToDo WHERE ID =:c AND Status != 'Complete'", {"c": row})
+        category = cursor.fetchone()
+        if category != None:
+            category = category[0]
+        
+        if name != None:
+            print(row, "-", name, "-", category, "- Priority:", priority)
 
-        print(row, "-", name, "-", category, "- Priority:", priority)
+    print("000 - Options")
 
     print()
     
@@ -94,6 +104,43 @@ def get_items():
 
     if item_editing == "0":
         add_new()
+    elif item_editing == "000":
+        print()
+        print("1 - View Completed")
+        print("0 - Cancel")
+
+        print()
+
+        user_option = input()
+
+        if user_option == "0":
+            print()
+            get_items()
+        elif user_option == "1":
+            print("0 - Go Back")
+            cursor.execute("SELECT ID FROM ToDo WHERE Status = 'Complete'")
+            complete_ID = cursor.fetchall()
+            if complete_ID != None:
+                complete_ID = complete_ID[0]
+                for ID in complete_ID:
+                    cursor.execute("SELECT Title FROM ToDo WHERE ID =:c", {"c": ID})
+                    name = cursor.fetchone()[0]
+                    cursor.execute("SELECT Category FROM ToDo WHERE ID =:c", {"c": ID})
+                    category = cursor.fetchone()[0]
+                    cursor.execute("SELECT Priority FROM ToDo WHERE ID =:c", {"c": ID})
+                    priority = cursor.fetchone()[0]
+
+                    print(name, "-", category, "-", priority)
+            else:
+                print("There Are No Complete Entries")
+            user_input = input()
+            get_items()
+
+        else:
+            print()
+            print("ERROR: Invalid Input")
+            print()
+
     else:
         cursor.execute("SELECT Title FROM ToDo WHERE ID =:c", {"c": item_editing})
         name = cursor.fetchone()[0]
