@@ -67,7 +67,7 @@ def add_new():
     new_entry_frame.pack(anchor = "center", expand = True, fill = "both",padx = 5, pady = 10)
     add_new_root.mainloop()
 
-    submit_new() # TODO: finish this
+    submit_new()
 
 def change_repeating_bool():
     global recurring, recurring_on, date_select_frame, date_select_window
@@ -161,7 +161,7 @@ def set_new_priority():
 def set_new_category():
     pass
 
-def submit_new(): # TODO: do this (submit new)
+def submit_new():
     global recurring, recurring_on, yesterday, new_priority, new_category, description_entry, title_entry, add_new_root
 
     name = title_entry.get()
@@ -186,13 +186,51 @@ def submit_new(): # TODO: do this (submit new)
 
     update_todo()
 
+def mark_comlete(item_editing):
+    ID = item_editing + 1
+
+    cursor.execute("SELECT Recurring FROM ToDo WHERE ID =:c", {"c": ID})
+    recurring = cursor.fetchone()
+    if recurring != None:
+        recurring = recurring[0]
+
+    print(recurring)
+
+    today = datetime.date.today()
+
+    if recurring == "n":    
+       cursor.execute("UPDATE ToDo SET Status = 'Complete' WHERE ID =:c", {"c": ID})
+       data.commit()
+    else:
+       cursor.execute("UPDATE ToDo SET Status = 'Not Started' WHERE ID =:c", {"c": ID})
+       data.commit()
+
+       cursor.execute("UPDATE ToDo Set LastComplete =:d WHERE ID =:c", {"d": today, "c": ID})
+       data.commit()
+
+    update_todo()
+
 def update_todo():
+    global full_frame, main_window, status_to
+
+    items_frame = customtkinter.CTkScrollableFrame(full_frame, corner_radius = 0, fg_color = "white")
+    items_frame.grid(row = 2, column = 0, columnspan = 4, padx = 10, pady = 10, sticky = "nesw")
+
+    items_frame.columnconfigure(0, weight = 1, minsize = 20)
+    items_frame.columnconfigure(1, weight = 1000)
+    items_frame.columnconfigure(2, weight = 1, minsize = 20)
+    items_frame.columnconfigure(3, weight = 1, minsize = 20)
+    items_frame.columnconfigure(4, weight = 1, minsize = 7)
+
     cursor.execute("SELECT COUNT(*) FROM ToDo")
     total_items = int(cursor.fetchone()[0])
 
-    print("0 - Add New")
+    button = {}
+    details_button = {}
 
     for i in range(0,total_items):
+
+
         row = i+1
         cursor.execute("SELECT Recurring FROM ToDo WHERE ID =:c", {"c": row})
         recurring = cursor.fetchone()
@@ -281,169 +319,76 @@ def update_todo():
                 name = None
         else:
             name = None
+        
+        complete_action = lambda x = i: mark_comlete(x)
+
+        status_to = customtkinter.StringVar(value = status)
+        priority_to = customtkinter.StringVar(value = priority)
 
         if name != None:
-            print(row, "-", name, "-", status, "- Priority:", priority)
+            button[i] = customtkinter.CTkButton(items_frame, text = "Complete", command = complete_action, corner_radius = 0, font = ("Monoton", 20))
+            button[i].grid(row = i, column = 0, sticky = "nesw", padx = 5, pady = 5)
 
+            title = customtkinter.CTkLabel(items_frame, text = name, font = ("Monoton", 20), anchor = "w", justify = "left")
+            title.grid(row = i, column = 1, sticky = "nesw", padx = 5, pady = 5)
+
+            if status == "Not Started":
+                colour = "#FFAA8A"
+            elif status == "In Progress":
+                colour = "#FFE991"
+            elif status == "Paused":
+                colour = "#B2EFF1"
+            else:
+                colour = "black"
+
+            status_change = customtkinter.CTkOptionMenu(items_frame, values = ["Not Started", "In Progress", "Paused"], variable = status_to, corner_radius = 0, fg_color = colour, button_color = colour, text_color = "black", font = ("Monoton", 15), command = lambda value, i=i: change_status(i, value))
+            status_change.grid(row = i, column = 2, sticky = "nesw", padx = 5, pady = 5)
+
+            if priority == "No Priority":
+                colour = "#D9D9D9"
+                text_colour = "black"
+            elif priority == "Low Priority":
+                colour = "#FFE991"
+                text_colour = "black"
+            elif priority == "Medium Priority":
+                colour = "#FFB800"
+                text_colour = "black"
+            elif priority == "High Priority":
+                colour = "#FF0000"
+                text_colour = "black"
+            else:
+                colour = "#820000"
+                text_colour = "white"
+
+            priority_change = customtkinter.CTkOptionMenu(items_frame, values = ["No Priority", "Low Priority", "Medium Priority", "High Priority", "Urgent"], variable = priority_to, corner_radius = 0, fg_color = colour, button_color = colour, text_color = text_colour, font = ("Monoton", 15), command = lambda value, i=i: change_priority(i, value))
+            priority_change.grid(row = i, column = 3, sticky = "nesw", padx = 5, pady = 5)
+
+            details_button[i] = customtkinter.CTkButton(items_frame, text = "Details", command = show_details, corner_radius = 0, font = ("Monoton", 20))
+            details_button[i].grid(row = i, column = 4, sticky = "nesw", padx = 5, pady = 5)
+    
+    items_frame.grid(row = 2, column = 0, columnspan = 4, padx = 5, pady = 10, sticky = "nesw")
+    full_frame.pack(anchor = "center", expand = True, fill = "both")
+    main_window.mainloop()
     show_details()
 
+def change_status(row_id, change_status_to):
+    rowid = row_id + 1
+
+    cursor.execute("UPDATE ToDo Set Status =:d WHERE ID =:c", {"d": change_status_to, "c": rowid})
+    data.commit()
+
+    update_todo()
+
+def change_priority(row_id, change_priority_to):
+    rowid = row_id + 1
+
+    cursor.execute("UPDATE ToDo Set Priority =:d WHERE ID =:c", {"d": change_priority_to, "c": rowid})
+    data.commit()
+
+    update_todo()
+
 def show_details():
-    global recurring
-
-    print("000 - Options")
-
-    print()
-    
-
-    item_editing = input()
-
-    if item_editing == "0":
-        add_new()
-    elif item_editing == "000":
-        display_options()
-
-    else:
-        cursor.execute("SELECT Title FROM ToDo WHERE ID =:c", {"c": item_editing})
-        name = cursor.fetchone()[0]
-        cursor.execute("SELECT Description FROM ToDo WHERE ID =:c", {"c": item_editing})
-        description = cursor.fetchone()[0]
-        cursor.execute("SELECT Category FROM ToDo WHERE ID =:c", {"c": item_editing})
-        category = cursor.fetchone()[0]
-        cursor.execute("SELECT Status FROM ToDo WHERE ID =:c", {"c": item_editing})
-        status = cursor.fetchone()[0]
-
-        if description == "":
-            description = "No Description"
-
-        print()
-
-        print(name)
-        print(description)
-        print(category)
-        print(status)
-
-        print()
-
-        print("1 - Mark Complete")
-        print("2 - Change Status")
-        print("3 - Change Priority")
-        print("0 - Cancel")
-
-        print()
-
-        option_in = input()
-
-        print()
-        
-        if option_in == "0":
-            print()
-            update_todo()
-        elif option_in == "1":
-            mark_comlete(item_editing)
-           
-
-            print()
-            update_todo()
-        elif option_in == "2":
-            print()
-
-            print("Change Status:")
-            print("1 - Not Started")
-            print("2 - In Progress")
-            print("3 - On Pause")
-            print("4 - Complete")
-            print("0 - Cancel")
-
-            print()
-
-            status_to = int(input())
-
-            if status_to == 1:
-                cursor.execute("UPDATE ToDo SET Status = 'Not Started' WHERE ID =:c", {"c": item_editing})
-                data.commit()
-                print()
-                update_todo()
-            elif status_to == 2:
-                cursor.execute("UPDATE ToDo SET Status = 'In Progress' WHERE ID =:c", {"c": item_editing})
-                data.commit()
-                print()
-                update_todo()
-            elif status_to == 3:
-                cursor.execute("UPDATE ToDo SET Status = 'On Pause' WHERE ID =:c", {"c": item_editing})
-                data.commit()
-                print()
-                update_todo()
-            elif status_to == 4:
-                if recurring == "n":                
-                    cursor.execute("UPDATE ToDo SET Status = 'Complete' WHERE ID =:c", {"c": item_editing})
-                    data.commit()
-                else:
-                    cursor.execute("UPDATE ToDo SET Status = 'Not Started' WHERE ID =:c", {"c": item_editing})
-                    data.commit()
-
-                    cursor.execute("UPDATE ToDo Set LastComplete =:d WHERE ID =:c", {"d": today, "c": item_editing})
-                    data.commit()
-
-                print()
-                update_todo()
-            elif status_to == 0:
-                print()
-                update_todo()
-            else:
-                print()
-                print("ERROR: Invalid Input")
-                print()
-                update_todo()
-
-        elif option_in == "3":
-            print("1 - Urgent")
-            print("2 - High Priority")
-            print("3 - Medium Priority")
-            print("4 - Low Priority")
-            print("5 - No Priority")
-            print("0 - Cancel")
-
-            priority_to = input()
-
-            if priority_to == "1":
-                cursor.execute("UPDATE ToDo SET Priority = 'Urgent' WHERE ID =:c", {"c": item_editing})
-                data.commit()
-                print()
-                update_todo()
-            elif priority_to == "2":
-                cursor.execute("UPDATE ToDo SET Priority = 'High Priority' WHERE ID =:c", {"c": item_editing})
-                data.commit()
-                print()
-                update_todo()
-            elif priority_to == "3":
-                cursor.execute("UPDATE ToDo SET Priority = 'Medium Priority' WHERE ID =:c", {"c": item_editing})
-                data.commit()
-                print()
-                update_todo()
-            elif priority_to == "4":
-                cursor.execute("UPDATE ToDo SET Priority = 'Low Priority' WHERE ID =:c", {"c": item_editing})
-                data.commit()
-                print()
-                update_todo()
-            elif priority_to == "5":
-                cursor.execute("UPDATE ToDo SET Priority = 'No Priority' WHERE ID =:c", {"c": item_editing})
-                data.commit()
-                print()
-                update_todo()
-            elif priority_to == "0":
-                print()
-                update_todo()
-            else:
-                print()
-                print("ERROR: Invalid Input")
-                print()
-                update_todo()
-        
-        else:
-            print()
-            print("ERROR: Invalid Input")
-            print()
-            update_todo()
+    pass
 
 def view_completed(): # TODO: update
     print()
@@ -467,17 +412,6 @@ def view_completed(): # TODO: update
     user_input = input()
     print()
     update_todo()
-
-def mark_comlete(item_editing):
-     if recurring == "n":                
-        cursor.execute("UPDATE ToDo SET Status = 'Complete' WHERE ID =:c", {"c": item_editing})
-        data.commit()
-     else:
-        cursor.execute("UPDATE ToDo SET Status = 'Not Started' WHERE ID =:c", {"c": item_editing})
-        data.commit()
-
-        cursor.execute("UPDATE ToDo Set LastComplete =:d WHERE ID =:c", {"d": today, "c": item_editing}) # TODO: broken?
-        data.commit()
 
 def print_todo():
     pass # TODO: make a pdf then print
@@ -629,5 +563,36 @@ def set_monthly_recurring(weekday):
 
     date_select_frame.pack(anchor = "center", expand = True, fill = "both", padx = 5, pady =10)
     date_select_window.mainloop()
+
+
+
+main_window = customtkinter.CTk()
+main_window.geometry("1000x750")
+
+full_frame = customtkinter.CTkFrame(main_window)
+
+full_frame.rowconfigure(0, weight = 1, minsize = 30)
+full_frame.rowconfigure(1, weight = 1, minsize = 30)
+full_frame.rowconfigure(2, weight = 1000)
+
+full_frame.columnconfigure(0, weight = 1, minsize = 20)
+full_frame.columnconfigure(1, weight = 1, minsize = 20)
+full_frame.columnconfigure(2, weight = 1000)
+full_frame.columnconfigure(3, weight = 1, minsize = 20)
+
+todo_menu_button = customtkinter.CTkButton(full_frame, text = "ToDo", command = update_todo, font = ("Monoton", 35, "bold"), corner_radius = 0, fg_color = "white", text_color = "black", anchor = "w", hover_color = "white")
+todo_menu_button.grid(row = 0, column = 0, padx = 10)
+
+completed_menu_button = customtkinter.CTkButton(full_frame, text = "Comleted", command = view_completed, font = ("Monoton", 35), corner_radius = 0, fg_color = "white", text_color = "black", anchor = "w", hover_color = "white")
+completed_menu_button.grid(row = 0, column = 1, padx = 10)
+
+options_menu_button = customtkinter.CTkButton(full_frame, text = "Options", command = display_options, font = ("Monoton", 35), corner_radius = 0, fg_color = "white", text_color = "black", anchor = "e", hover_color = "white")
+options_menu_button.grid(row = 0, column = 3, padx = 10)
+
+filter_button = customtkinter.CTkButton(full_frame, text = "Filter", command = display_options, font = ("Monoton", 30), corner_radius = 0, fg_color = "white", text_color = "black", anchor = "w", hover_color = "white")
+filter_button.grid(row = 1, column = 0, padx = 10)
+
+add_new_button = customtkinter.CTkButton(full_frame, text = "Add New", command = add_new, font = ("Monoton", 30), corner_radius = 0, fg_color = "black", text_color = "white", anchor = "center")
+add_new_button.grid(row = 1, column = 3, padx = 10)
 
 update_todo()
